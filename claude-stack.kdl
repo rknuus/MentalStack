@@ -1,0 +1,41 @@
+// claude-stack.kdl — Claude Code + a live mental-stack sidebar.
+//
+// Launch FROM your project directory (so both panes inherit its cwd and share
+// the same .mentalstack.json):
+//
+//   zellij --layout /ABS/PATH/claude-stack.kdl
+//
+// or copy this file to ~/.config/zellij/layouts/ and run:
+//
+//   zellij --layout claude-stack
+//
+// Replace /ABS/PATH/to/MentalStack below with the absolute path to your local
+// clone of this repo. `uv run --project <path>` runs the entry point against
+// the project's pinned environment, no matter what cwd zellij inherits.
+
+layout {
+    pane split_direction="vertical" {
+        // Main pane: Claude Code, focused, most of the width.
+        pane command="claude" focus=true size="72%" name="Claude Code"
+
+        // Sidebar: the live, always-visible mental-stack view.
+        pane size="28%" name="🧠 mental stack" command="uv" {
+            args "run" "--project" "/ABS/PATH/to/MentalStack" "mentalstack-view"
+        }
+    }
+}
+
+// Want a small bottom-right CORNER instead of a full-height sidebar? Nest the
+// right column and give the stack a fixed share, e.g.:
+//
+// layout {
+//     pane split_direction="vertical" {
+//         pane command="claude" focus=true size="72%" name="Claude Code"
+//         pane split_direction="horizontal" size="28%" {
+//             pane name="(scratch)"
+//             pane size="40%" name="🧠 stack" command="uv" {
+//                 args "run" "--project" "/ABS/PATH/to/MentalStack" "mentalstack-view"
+//             }
+//         }
+//     }
+// }

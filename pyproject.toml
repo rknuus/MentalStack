@@ -1,0 +1,26 @@
+[project]
+name = "mentalstack"
+version = "0.1.0"
+description = "A per-project depth-first call stack for Claude Code, with a live zellij sidebar TUI and an MCP server."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Raphael Knaus" },
+]
+dependencies = [
+    "mcp[cli]",
+    "rich",
+]
+
+[project.scripts]
+mentalstack-server = "mentalstack.server:main"
+mentalstack-view = "mentalstack.view:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mentalstack"]
