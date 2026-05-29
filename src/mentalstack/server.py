@@ -44,7 +44,7 @@ def _new_state() -> dict:
         "root": root,
         "cursor": root,
         "nodes": {
-            root: {"id": root, "title": "(top level)", "status": "open",
+            root: {"title": "(top level)", "status": "open",
                    "parent": None, "children": [], "notes": []},
         },
     }
@@ -127,7 +127,7 @@ def enter(title: str) -> str:
     state = load()
     nid = _id(state)
     parent = state["cursor"]
-    state["nodes"][nid] = {"id": nid, "title": title, "status": "open",
+    state["nodes"][nid] = {"title": title, "status": "open",
                            "parent": parent, "children": [], "notes": []}
     _n(state, parent)["children"].append(nid)
     state["cursor"] = nid
@@ -167,7 +167,7 @@ def add(title: str) -> str:
     state = load()
     parent = _n(state, state["cursor"])["parent"] or state["root"]
     nid = _id(state)
-    state["nodes"][nid] = {"id": nid, "title": title, "status": "open",
+    state["nodes"][nid] = {"title": title, "status": "open",
                            "parent": parent, "children": [], "notes": []}
     _n(state, parent)["children"].append(nid)
     save(state)

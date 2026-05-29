@@ -30,11 +30,16 @@ POLL_SECONDS = 0.4
 
 
 def load():
+    """Read the state file. Return ("ok", state), ("empty", None), or ("error", msg)."""
     try:
         with STATE_PATH.open(encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return None
+            return ("ok", json.load(f))
+    except FileNotFoundError:
+        return ("empty", None)
+    except json.JSONDecodeError as e:
+        return ("error", f"line {e.lineno}, col {e.colno}: {e.msg}")
+    except OSError as e:
+        return ("error", e.strerror or str(e))
 
 
 def path_to(state, nid) -> list[str]:
@@ -63,10 +68,18 @@ def _add_children(state, parent_id, branch, on_path: set, cursor: str):
         _add_children(state, cid, branch.add(label), on_path, cursor)
 
 
-def build(state):
-    if state is None:
+def build(result):
+    kind, payload = result
+    if kind == "empty":
         return Panel("no stack yet —\nuse the tools in Claude",
                      title="🧠 mental stack")
+    if kind == "error":
+        body = Text()
+        body.append("⚠ can't read state file\n", style="bold red")
+        body.append(STATE_PATH.name + "\n", style="dim")
+        body.append(payload, style="red")
+        return Panel(body, title="🧠 mental stack", border_style="red")
+    state = payload
     cursor = state["cursor"]
     on_path = set(path_to(state, cursor))
     root_id = state["root"]
