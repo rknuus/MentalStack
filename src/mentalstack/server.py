@@ -13,6 +13,8 @@ Model: a tree of items with a single cursor.
   - `exit`   steps back up to the parent without finishing
   - `complete` closes the current item and moves to the next open sibling (else up)
   - `add`    queues a sibling at the current level (a not-yet-opened bracket)
+  - `insert` adds a sibling before or after a given node (cursor stays)
+  - `move`   reorders a node before or after a same-parent sibling
   - `goto`   jumps the cursor anywhere by id (descend into an existing item, or
              move sideways) — for the non-linear jumps
   - `refine` re-words the current item
@@ -28,7 +30,7 @@ import functools
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -205,6 +207,48 @@ def add(title: str) -> str:
     state["nodes"][nid] = {"title": title, "status": "open",
                            "parent": parent, "children": [], "notes": []}
     _n(state, parent)["children"].append(nid)
+    save(state)
+    return render(state)
+
+
+@mcp.tool()
+@_guard_unreadable
+def insert(title: str, anchor: str, where: Literal["before", "after"]) -> str:
+    """Insert a NEW sibling before or after `anchor`. The cursor does not move."""
+    state = load()
+    if anchor not in state["nodes"]:
+        return f"no item with id {anchor}\n" + render(state)
+    parent = _n(state, anchor)["parent"]
+    if parent is None:
+        return "cannot insert sibling of root\n" + render(state)
+    nid = _id(state)
+    state["nodes"][nid] = {"title": title, "status": "open",
+                           "parent": parent, "children": [], "notes": []}
+    sibs = _n(state, parent)["children"]
+    idx = sibs.index(anchor) + (1 if where == "after" else 0)
+    sibs.insert(idx, nid)
+    save(state)
+    return render(state)
+
+
+@mcp.tool()
+@_guard_unreadable
+def move(id: str, anchor: str, where: Literal["before", "after"]) -> str:
+    """Reorder `id` so it sits before or after `anchor`. Both must share a parent."""
+    state = load()
+    if id not in state["nodes"]:
+        return f"no item with id {id}\n" + render(state)
+    if anchor not in state["nodes"]:
+        return f"no item with id {anchor}\n" + render(state)
+    if id == anchor:
+        return f"cannot move {id} relative to itself\n" + render(state)
+    parent = _n(state, id)["parent"]
+    if parent is None or _n(state, anchor)["parent"] != parent:
+        return f"{id} and {anchor} are not siblings; same-parent moves only\n" + render(state)
+    sibs = _n(state, parent)["children"]
+    sibs.remove(id)
+    idx = sibs.index(anchor) + (1 if where == "after" else 0)
+    sibs.insert(idx, id)
     save(state)
     return render(state)
 

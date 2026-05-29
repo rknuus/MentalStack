@@ -90,6 +90,8 @@ tools, the sidebar updates within ~0.4 s:
 | step back up            | `exit`      | move to parent, nothing closed                |
 | done with this          | `complete`  | close it, jump to next open sibling / up      |
 | note a peer task        | `add`       | queue a sibling, cursor stays                 |
+| insert at a position    | `insert`    | new sibling before/after a given node, cursor stays |
+| reorder siblings        | `move`      | move a node before/after a same-parent sibling |
 | jump anywhere           | `goto <id>` | descend into an existing item / move sideways |
 | re-word current         | `refine`    | rename the current item                       |
 | where am I?             | `view`      | print path + children + what's next           |
