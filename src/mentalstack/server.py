@@ -24,6 +24,7 @@ Run:  uv run mentalstack-server        (stdio transport, the default)
 """
 from __future__ import annotations
 
+import functools
 import json
 import os
 from pathlib import Path
@@ -34,6 +35,10 @@ from mcp.server.fastmcp import FastMCP
 STATE_PATH = Path(os.environ.get("MENTALSTACK_FILE", ".mentalstack.json")).resolve()
 
 mcp = FastMCP("mentalstack")
+
+
+class StateUnreadableError(RuntimeError):
+    """The state file exists but couldn't be read or parsed."""
 
 
 # ----------------------------------------------------------------------------- state
@@ -51,11 +56,36 @@ def _new_state() -> dict:
 
 
 def load() -> dict:
+    """Read state from disk. Fresh state if the file is missing; raises
+    StateUnreadableError if it exists but can't be parsed — so callers
+    never silently overwrite a user's botched file."""
     try:
         with STATE_PATH.open(encoding="utf-8") as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except FileNotFoundError:
         return _new_state()
+    except json.JSONDecodeError as e:
+        raise StateUnreadableError(f"line {e.lineno}, col {e.colno}: {e.msg}") from e
+    except OSError as e:
+        raise StateUnreadableError(e.strerror or str(e)) from e
+
+
+def _unreadable_msg(e: StateUnreadableError) -> str:
+    return (f"⚠ state file unreadable; refusing to mutate.\n"
+            f"{STATE_PATH}\n"
+            f"{e}\n"
+            f"Fix the file by hand, then retry.")
+
+
+def _guard_unreadable(fn):
+    """Surface StateUnreadableError as a chat message instead of an exception, so a corrupt file never causes a save() that wipes it."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except StateUnreadableError as e:
+            return _unreadable_msg(e)
+    return wrapper
 
 
 def save(state: dict) -> None:
@@ -116,12 +146,14 @@ def render(state: dict) -> str:
 
 # ----------------------------------------------------------------------------- tools
 @mcp.tool()
+@_guard_unreadable
 def view() -> str:
     """Show the current stack: open brackets (path to cursor), current item, its children, and what's next."""
     return render(load())
 
 
 @mcp.tool()
+@_guard_unreadable
 def enter(title: str) -> str:
     """Push a NEW sub-item under the current item and descend into it (open a bracket)."""
     state = load()
@@ -136,6 +168,7 @@ def enter(title: str) -> str:
 
 
 @mcp.tool()
+@_guard_unreadable
 def exit() -> str:
     """Step back up to the parent item WITHOUT completing the current one."""
     state = load()
@@ -147,6 +180,7 @@ def exit() -> str:
 
 
 @mcp.tool()
+@_guard_unreadable
 def complete(note: str = "") -> str:
     """Close the current item (mark done) and move to the next open sibling, else up to the parent."""
     state = load()
@@ -162,6 +196,7 @@ def complete(note: str = "") -> str:
 
 
 @mcp.tool()
+@_guard_unreadable
 def add(title: str) -> str:
     """Queue a sibling at the current level (a not-yet-opened bracket). The cursor does not move."""
     state = load()
@@ -175,6 +210,7 @@ def add(title: str) -> str:
 
 
 @mcp.tool()
+@_guard_unreadable
 def goto(id: str) -> str:
     """Jump the cursor to any item by id — descend into an existing planned item or move sideways (non-linear)."""
     state = load()
@@ -186,6 +222,7 @@ def goto(id: str) -> str:
 
 
 @mcp.tool()
+@_guard_unreadable
 def refine(title: str) -> str:
     """Re-word the current item's title."""
     state = load()
