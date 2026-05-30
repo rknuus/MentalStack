@@ -1,52 +1,28 @@
 # TODO — deferred follow-up work
 
-These items are intentionally deferred from the initial `uv` migration. They are
-**planned future work**, not unfinished business from this project. A future
-initiative ("dev tooling setup") should pick them up together.
+These items are intentionally deferred from the current initiative — **planned
+future work**, not unfinished business.
 
-## ruff — lint + format
+## CI (GitHub Actions)
 
-Add `ruff` as a dev dependency and a `[tool.ruff]` block to `pyproject.toml`.
-
-```bash
-uv add --dev ruff
-```
-
-Suggested baseline: line length 100, target `py311`, enable `E`, `F`, `I`, `B`,
-`UP`, `SIM`. Run `uv run ruff check .` and `uv run ruff format .` from CI and a
-pre-commit hook.
-
-## pytest — test scaffold
-
-Add `pytest` as a dev dependency and create a `tests/` directory at repo root.
+Add a workflow that runs the four pre-PR commands on push and on pull request:
 
 ```bash
-uv add --dev pytest
-mkdir tests
+uv sync
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
 ```
 
-Seed with one smoke test that imports `mentalstack` and exercises a couple of
-the pure helper functions in `server.py` (e.g. `_path`, `_next_open_sibling`,
-`render`) against a hand-built state dict. The MCP tool layer and the TUI
-`Live` loop need integration-style tests later — keep them out of the initial
-scaffold.
+Matrix on at least the supported Python versions (currently `3.11`). Cache the
+`uv` install and the `.venv` for faster runs.
 
-## mypy — strict-ish type checking
+## pre-commit hooks
 
-Add `mypy` as a dev dependency and a `[tool.mypy]` block to `pyproject.toml`.
+Add a `.pre-commit-config.yaml` that runs `ruff check`, `ruff format --check`,
+and `mypy` (against `src`) on staged files. Same gates as CI, just earlier in
+the loop.
 
-```bash
-uv add --dev mypy
-```
-
-Suggested settings: `python_version = "3.11"`, `strict = true`, with per-module
-overrides as needed (the MCP `FastMCP` decorators may need some coaxing). Add
-type hints to the helper functions in `server.py` and `view.py` first — they
-are pure and self-contained — then expand outward.
-
-## Wiring (do once tooling is in)
-
-- A `pre-commit` config that runs `ruff check`, `ruff format --check`, and
-  `mypy` on staged files.
-- A minimal CI workflow (GitHub Actions): `uv sync`, `uv run ruff check .`,
-  `uv run mypy`, `uv run pytest`.
+Suggested install: `uv tool install pre-commit` and document
+`pre-commit install` as part of the Development section once landed.

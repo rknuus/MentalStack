@@ -13,27 +13,37 @@ Claude. Meant to run in a small zellij pane beside Claude Code.
 
 Run:  uv run mentalstack-view
 """
+
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal, TypeAlias, cast
 
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 from rich.tree import Tree
 
+if TYPE_CHECKING:
+    from mentalstack.server import State
+
 STATE_PATH = Path(os.environ.get("MENTALSTACK_FILE", ".mentalstack.json")).resolve()
 POLL_SECONDS = 0.4
 
+LoadResult: TypeAlias = (
+    tuple[Literal["ok"], "State"] | tuple[Literal["empty"], None] | tuple[Literal["error"], str]
+)
 
-def load():
+
+def load() -> LoadResult:
     """Read the state file. Return ("ok", state), ("empty", None), or ("error", msg)."""
     try:
         with STATE_PATH.open(encoding="utf-8") as f:
-            return ("ok", json.load(f))
+            return ("ok", cast("State", json.load(f)))
     except FileNotFoundError:
         return ("empty", None)
     except json.JSONDecodeError as e:
@@ -42,15 +52,22 @@ def load():
         return ("error", e.strerror or str(e))
 
 
-def path_to(state, nid) -> list[str]:
-    out, cur = [], nid
+def path_to(state: State, nid: str) -> list[str]:
+    out: list[str] = []
+    cur: str | None = nid
     while cur is not None:
         out.append(cur)
         cur = state["nodes"][cur]["parent"]
     return list(reversed(out))
 
 
-def _add_children(state, parent_id, branch, on_path: set, cursor: str):
+def _add_children(
+    state: State,
+    parent_id: str,
+    branch: Tree,
+    on_path: set[str],
+    cursor: str,
+) -> None:
     for cid in state["nodes"][parent_id]["children"]:
         n = state["nodes"][cid]
         done = n["status"] == "done"
@@ -68,17 +85,19 @@ def _add_children(state, parent_id, branch, on_path: set, cursor: str):
         _add_children(state, cid, branch.add(label), on_path, cursor)
 
 
-def build(result):
+def build(result: LoadResult) -> Panel:
     kind, payload = result
     if kind == "empty":
-        return Panel("no stack yet —\nuse the tools in Claude",
-                     title="🧠 mental stack")
+        return Panel("no stack yet —\nuse the tools in Claude", title="🧠 mental stack")
     if kind == "error":
+        assert isinstance(payload, str)
         body = Text()
         body.append("⚠ can't read state file\n", style="bold red")
         body.append(STATE_PATH.name + "\n", style="dim")
         body.append(payload, style="red")
         return Panel(body, title="🧠 mental stack", border_style="red")
+    # kind == "ok"
+    assert payload is not None and not isinstance(payload, str)
     state = payload
     cursor = state["cursor"]
     on_path = set(path_to(state, cursor))
@@ -86,16 +105,15 @@ def build(result):
     tree = Tree(Text(state["nodes"][root_id]["title"], style="bold"))
     _add_children(state, root_id, tree, on_path, cursor)
     crumbs = " › ".join(state["nodes"][n]["title"] for n in path_to(state, cursor))
-    return Panel(tree, title="🧠 mental stack",
-                 subtitle=crumbs, subtitle_align="left")
+    return Panel(tree, title="🧠 mental stack", subtitle=crumbs, subtitle_align="left")
 
 
 def _run() -> None:
-    last = object()
+    last: object = object()
     with Live(build(load()), refresh_per_second=4, screen=True) as live:
         while True:
             try:
-                stamp = STATE_PATH.stat().st_mtime
+                stamp: float | None = STATE_PATH.stat().st_mtime
             except FileNotFoundError:
                 stamp = None
             if stamp != last:
@@ -105,10 +123,8 @@ def _run() -> None:
 
 
 def main() -> None:
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         _run()
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":

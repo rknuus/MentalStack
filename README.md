@@ -112,8 +112,33 @@ A good `CLAUDE.md` line for the project:
   want folding, scrolling, or keybindings.
 - **History rewrite-safe:** state is just JSON; commit `.mentalstack.json` per
   project or add it to `.gitignore`, your call.
-- **Planned dev tooling** (ruff, pytest, mypy) is captured in [`TODO.md`](TODO.md)
-  for a follow-up initiative.
+- **Next up** (CI, pre-commit) is captured in [`TODO.md`](TODO.md) for a
+  follow-up initiative.
+
+## Development
+
+Install dev deps along with the runtime ones:
+
+```bash
+uv sync                # or: just sync
+```
+
+Four pre-PR commands are expected to exit 0 against the committed tree:
+
+```bash
+uv run pytest                     # run the test suite     — just test
+uv run ruff check .               # lint                   — just lint
+uv run ruff format --check .      # check formatting       — just fmt-check
+uv run mypy src                   # type-check the source  — just typecheck
+```
+
+Or in one go: `just check` runs all four in the same order CI will.
+`just` (without an argument) lists every recipe; `just fmt` auto-formats
+in place.
+
+Tests live in `tests/`. `mypy` checks only `src/`; tests are intentionally
+out of scope for the type checker. CI to run all four on push is captured
+in [`TODO.md`](TODO.md) as the next follow-up.
 
 ## License
 
